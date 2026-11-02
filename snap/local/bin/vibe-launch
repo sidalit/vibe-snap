@@ -1,0 +1,19 @@
+#!/bin/sh
+set -eu
+
+# Keep models, settings and caches out of revisioned data, so refreshes do not copy them.
+export XDG_DATA_HOME="$SNAP_USER_COMMON/.local/share"
+export XDG_CONFIG_HOME="$SNAP_USER_COMMON/.config"
+export XDG_CACHE_HOME="$SNAP_USER_COMMON/.cache"
+mkdir -p "$XDG_DATA_HOME" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME"
+
+# Route ALSA, which the recorder uses, through PulseAudio.
+export ALSA_CONFIG_PATH="$SNAP/etc/alsa/alsa.conf"
+for plugin in "$SNAP"/usr/lib/*/alsa-lib/libasound_module_pcm_pulse.so; do
+    if [ -f "$plugin" ]; then
+        export ALSA_PLUGIN_DIR="${plugin%/*}"
+        break
+    fi
+done
+
+exec "$SNAP/usr/bin/vibe" "$@"

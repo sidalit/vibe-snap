@@ -1,0 +1,142 @@
+name: vibe
+base: core26
+version: '3.3.0'
+title: Vibe
+icon: snap/gui/vibe.png
+summary: Transcribe audio and video offline with Whisper models
+description: |
+  Transcribe audio and video files on your own computer with Whisper
+  models. Vibe supports almost every language, batch transcription,
+  speaker identification, microphone recording and exports to SRT, VTT,
+  TXT, HTML, PDF and DOCX. Audio never leaves your machine; a network
+  connection is only needed to download models.
+
+  Pick and download a model on first launch. Vulkan GPU acceleration is used
+  when available. The `vibe.cli` command runs the transcription engine
+  without the window, for example:
+
+     vibe.cli transcribe ggml-tiny.bin recording.mp3
+
+  Connect the microphone to record: `sudo snap connect vibe:audio-record`.
+  Updates are managed by snapd.
+license: MIT
+grade: stable
+confinement: strict
+website: https://thewh1teagle.github.io/vibe/
+source-code:
+  - https://github.com/thewh1teagle/vibe
+  - https://github.com/sidalit/vibe-snap
+issues:
+  - https://github.com/thewh1teagle/vibe/issues
+  - https://github.com/sidalit/vibe-snap/issues
+contact: https://github.com/sidalit/vibe-snap/issues
+
+platforms:
+  amd64:
+
+slots:
+  vibe-single-instance:
+    interface: dbus
+    bus: session
+    name: github.com.thewh1teagle.vibe.SingleInstance
+
+apps:
+  vibe:
+    command: bin/vibe-launch
+    extensions: [gnome]
+    slots:
+      - vibe-single-instance
+    plugs:
+      - audio-playback
+      - audio-record
+      - home
+      - network
+      - network-bind
+      - removable-media
+      - unity7
+
+  cli:
+    command: usr/bin/vibe-server
+    extensions: [gnome]
+    plugs:
+      - home
+      - network
+      - network-bind
+      - removable-media
+
+parts:
+  pnpm:
+    plugin: nil
+    build-snaps:
+      - node/22/stable
+    override-build: |
+      npm install --global --prefix "$CRAFT_PART_INSTALL" pnpm@10.4.1
+    prime:
+      - -*
+
+  vibe:
+    after: [pnpm]
+    plugin: rust
+    source: https://github.com/thewh1teagle/vibe.git
+    source-tag: v$SNAPCRAFT_PROJECT_VERSION
+    source-depth: 1
+    rust-channel: '1.99.1'
+    build-snaps:
+      - node/22/stable
+    build-environment:
+      - PATH: $CRAFT_STAGE/bin:$HOME/.cargo/bin:$PATH
+      - CARGO_BUILD_JOBS: $CRAFT_PARALLEL_BUILD_COUNT
+      # The GNOME SDK ships OpenSSL headers without opensslconf.h; use the archive's.
+      - OPENSSL_INCLUDE_DIR: /usr/include
+      - OPENSSL_LIB_DIR: /usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR
+    build-packages:
+      - build-essential
+      - clang
+      - cmake
+      - git
+      - glslang-tools
+      - glslc
+      - libasound2-dev
+      - libclang-dev
+      - libssl-dev
+      - libvulkan-dev
+      - libxdo-dev
+      - patch
+      - perl
+      - pkg-config
+      - spirv-headers
+    stage-packages:
+      - ffmpeg
+      - libasound2-plugins
+      - libayatana-appindicator3-1
+      - libvulkan1
+      - libxdo3
+    override-pull: |
+      craftctl default
+      patch -p1 < "$CRAFT_PROJECT_DIR/snap/patches/disable-updater.patch"
+    override-build: |
+      # vibe-server, the transcription engine sidecar, from the server/ tree that
+      # upstream tags as the server release named in .server-version.
+      "$CRAFT_PROJECT_DIR/snap/local/build-ggml.sh" "$CRAFT_PART_BUILD/server" "$CRAFT_PARALLEL_BUILD_COUNT"
+      server_version=$(cat .server-version)
+      (
+        cd server
+        VIBE_SERVER_VERSION="$server_version" VIBE_SERVER_COMMIT="$(git rev-parse HEAD)" \
+          cargo build --locked --release -p vibe-server
+      )
+      triple=$(rustc -vV | sed -n 's/^host: //p')
+      install -Dm755 server/target/release/vibe-server \
+        "desktop/src-tauri/binaries/vibe-server-$triple"
+
+      cd desktop
+      pnpm install --frozen-lockfile
+      pnpm build
+      cd ..
+      cargo build --locked --release -p vibe --features tauri/custom-protocol
+
+      install -Dm755 target/release/vibe "$CRAFT_PART_INSTALL/usr/bin/vibe"
+      install -Dm755 server/target/release/vibe-server "$CRAFT_PART_INSTALL/usr/bin/vibe-server"
+      install -Dm755 "$CRAFT_PROJECT_DIR/snap/local/bin/vibe-launch" "$CRAFT_PART_INSTALL/bin/vibe-launch"
+      install -Dm644 "$CRAFT_PROJECT_DIR/snap/local/asound.conf" "$CRAFT_PART_INSTALL/etc/alsa/alsa.conf"
+      install -Dm644 LICENSE "$CRAFT_PART_INSTALL/usr/share/doc/vibe/LICENSE"
+      install -Dm644 ggml-src/LICENSE "$CRAFT_PART_INSTALL/usr/share/doc/vibe/ggml/LICENSE"

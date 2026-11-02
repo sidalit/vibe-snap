@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Vibe
+GenericName=Transcription
+Comment=Transcribe audio and video offline
+Exec=vibe
+Icon=${SNAP}/meta/gui/vibe.png
+Terminal=false
+Categories=AudioVideo;Audio;Utility;
+Keywords=transcribe;transcription;whisper;speech;subtitles;captions;
+StartupNotify=true
+StartupWMClass=vibe

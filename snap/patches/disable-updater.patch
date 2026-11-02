@@ -1,0 +1,13 @@
+--- a/desktop/src-tauri/src/updater.rs
++++ b/desktop/src-tauri/src/updater.rs
+@@ -55,6 +55,10 @@
+     pending: State<'_, PendingUpdate>,
+     channel: Channel,
+ ) -> Result<Option<AvailableUpdate>, String> {
++    // The snap is refreshed by snapd; never offer an in-app update.
++    if std::env::var_os("SNAP").is_some() {
++        return Ok(None);
++    }
+     let url = channel.url().parse().map_err(|e| format!("{e:?}"))?;
+     let update = app
+         .updater_builder()

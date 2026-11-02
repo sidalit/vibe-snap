@@ -1,0 +1,12 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "assignees": ["sidalit"],
+  "extends": ["github>sidalit/snap-automation#v1.2.0"],
+  "packageRules": [
+    {
+      "matchDepNames": ["upstream"],
+      "overridePackageName": "thewh1teagle/vibe",
+      "extractVersion": "^v(?<version>\\d+\\.\\d+\\.\\d+)$"
+    }
+  ]
+}
