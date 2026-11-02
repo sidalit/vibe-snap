@@ -54,7 +54,7 @@ Models, settings and logs are stored in `~/snap/vibe/common`.
 
 - Files must be in your home directory or connected removable storage. Hidden folders in your home directory are not accessible.
 - Recording system audio, meeting detection and starting Vibe at login are unavailable.
-- `vibe://` links are not registered. An existing native installation's models and settings are not imported. Application updates are managed by snapd.
+- An existing native installation's models and settings are not imported. Application updates are managed by snapd.
 
 ## Build
 
