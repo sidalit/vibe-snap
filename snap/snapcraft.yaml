@@ -33,6 +33,7 @@ contact: https://github.com/sidalit/vibe-snap/issues
 
 platforms:
   amd64:
+  arm64:
 
 slots:
   vibe-single-instance:
@@ -114,10 +115,52 @@ parts:
     override-pull: |
       craftctl default
       patch -p1 < "$CRAFT_PROJECT_DIR/snap/patches/disable-updater.patch"
+      # GGML's version and patches belong to the selected Vibe revision.
+      ggml_version=$(cat "$CRAFT_PART_SRC/server/libs/ggml-version")
+      rm -rf "$CRAFT_PART_SRC/ggml-src"
+      git clone --depth 1 --branch "$ggml_version" \
+        https://github.com/ggml-org/ggml.git "$CRAFT_PART_SRC/ggml-src"
+      for patch in "$CRAFT_PART_SRC"/server/libs/patches/*.patch; do
+        git -C "$CRAFT_PART_SRC/ggml-src" apply "$patch"
+      done
     override-build: |
-      # vibe-server, the transcription engine sidecar, from the server/ tree that
-      # upstream tags as the server release named in .server-version.
-      "$CRAFT_PROJECT_DIR/snap/local/build-ggml.sh" "$CRAFT_PART_BUILD/server" "$CRAFT_PARALLEL_BUILD_COUNT"
+      out="$CRAFT_PART_BUILD/server/libs/lib"
+      rm -rf ggml-build ggml-build-x64 "$out"
+      flags=(-DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DGGML_NATIVE=OFF
+        -DGGML_BUILD_EXAMPLES=OFF -DGGML_BUILD_TESTS=OFF
+        -DGGML_VULKAN=ON -DGGML_VULKAN_DYNAMIC_LOADER=ON)
+      cmake -S ggml-src -B ggml-build "${flags[@]}"
+      cmake --build ggml-build --parallel "$CRAFT_PARALLEL_BUILD_COUNT"
+
+      mkdir -p "$out"
+      find_lib() {
+        find "$1" -name "$2" -print -quit | grep . || {
+          echo "$2 not found under $1" >&2
+          exit 1
+        }
+      }
+      for lib in libggml.a libggml-base.a libggml-vulkan.a; do
+        cp "$(find_lib ggml-build "$lib")" "$out/$lib"
+      done
+      if [ "$CRAFT_ARCH_BUILD_FOR" = amd64 ]; then
+        # Upstream selects AVX2 or baseline kernels at runtime.
+        cmake -S ggml-src -B ggml-build-x64 "${flags[@]}" \
+          -DGGML_VULKAN=OFF -DGGML_AVX2=OFF -DGGML_FMA=OFF -DGGML_BMI2=OFF
+        cmake --build ggml-build-x64 --parallel "$CRAFT_PARALLEL_BUILD_COUNT" --target ggml-cpu
+        for variant in hsw x64; do
+          build=ggml-build
+          [ "$variant" != x64 ] || build=ggml-build-x64
+          lib="$out/libggml-cpu-$variant.a"
+          cp "$(find_lib "$build" libggml-cpu.a)" "$lib"
+          nm --defined-only --format=just-symbols "$lib" | grep -v -e ':$' -e '^$' | sort -u |
+            awk -v suffix="_$variant" '{ print $1, $1 suffix }' > "$lib.map"
+          objcopy --redefine-syms="$lib.map" "$lib"
+          rm "$lib.map"
+        done
+      else
+        cp "$(find_lib ggml-build libggml-cpu.a)" "$out/libggml-cpu.a"
+      fi
+
       server_version=$(cat .server-version)
       (
         cd server

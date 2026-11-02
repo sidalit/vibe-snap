@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-# Keep models, settings and caches out of revisioned data, so refreshes do not copy them.
+# Preserve downloaded models across refreshes.
 export XDG_DATA_HOME="$SNAP_USER_COMMON/.local/share"
 export XDG_CONFIG_HOME="$SNAP_USER_COMMON/.config"
 export XDG_CACHE_HOME="$SNAP_USER_COMMON/.cache"

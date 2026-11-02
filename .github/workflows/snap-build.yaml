@@ -22,7 +22,6 @@ jobs:
   snap:
     uses: sidalit/snap-automation/.github/workflows/snap-build.yaml@v1.2.0
     with:
-      architectures: '["amd64"]'
       build-from: ${{ github.event_name == 'schedule' && 'head' || inputs.build-from || 'tag' }}
       publish: ${{ github.event_name == 'push' || github.event_name == 'schedule' || inputs.publish == true }}
     secrets:
