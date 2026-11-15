@@ -81,7 +81,7 @@ parts:
     source: https://github.com/thewh1teagle/vibe.git
     source-tag: v$SNAPCRAFT_PROJECT_VERSION
     source-depth: 1
-    rust-channel: '1.99.1'
+    rust-channel: stable
     build-snaps:
       - node/22/stable
     build-environment:
