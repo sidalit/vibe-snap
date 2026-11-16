@@ -114,7 +114,11 @@ parts:
       - libxdo3
     override-pull: |
       craftctl default
-      patch -p1 < "$CRAFT_PROJECT_DIR/snap/patches/disable-updater.patch"
+      if [ -d desktop/src-tauri/src/updater ]; then
+        patch -p1 < "$CRAFT_PROJECT_DIR/snap/patches/disable-updater-channel.patch"
+      else
+        patch -p1 < "$CRAFT_PROJECT_DIR/snap/patches/disable-updater.patch"
+      fi
       # GGML's version and patches belong to the selected Vibe revision.
       ggml_version=$(cat "$CRAFT_PART_SRC/server/libs/ggml-version")
       rm -rf "$CRAFT_PART_SRC/ggml-src"

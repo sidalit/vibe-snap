@@ -1,0 +1,13 @@
+--- a/desktop/src-tauri/src/updater/channel.rs
++++ b/desktop/src-tauri/src/updater/channel.rs
+@@ -57,6 +57,10 @@
+ 
+ /// Ask the channel whether a newer version exists.
+ pub async fn check(app: &AppHandle, channel: Channel) -> Result<Option<Update>, String> {
++    // The snap is refreshed by snapd; never offer an in-app update.
++    if std::env::var_os("SNAP").is_some() {
++        return Ok(None);
++    }
+     let url = channel.url().parse().map_err(|error| format!("{error:?}"))?;
+     app.updater_builder()
+         .endpoints(vec![url])
