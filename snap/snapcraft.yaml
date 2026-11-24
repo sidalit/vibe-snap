@@ -129,7 +129,7 @@ parts:
       done
     override-build: |
       out="$CRAFT_PART_BUILD/server/libs/lib"
-      rm -rf ggml-build ggml-build-x64 "$out"
+      rm -rf ggml-build ggml-build-x64 ggml-build-sse "$out"
       flags=(-DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DGGML_NATIVE=OFF
         -DGGML_BUILD_EXAMPLES=OFF -DGGML_BUILD_TESTS=OFF
         -DGGML_VULKAN=ON -DGGML_VULKAN_DYNAMIC_LOADER=ON)
@@ -147,13 +147,17 @@ parts:
         cp "$(find_lib ggml-build "$lib")" "$out/$lib"
       done
       if [ "$CRAFT_ARCH_BUILD_FOR" = amd64 ]; then
-        # Upstream selects AVX2 or baseline kernels at runtime.
+        # Upstream selects AVX2, AVX or SSE4.2 kernels at runtime.
         cmake -S ggml-src -B ggml-build-x64 "${flags[@]}" \
           -DGGML_VULKAN=OFF -DGGML_AVX2=OFF -DGGML_FMA=OFF -DGGML_BMI2=OFF
         cmake --build ggml-build-x64 --parallel "$CRAFT_PARALLEL_BUILD_COUNT" --target ggml-cpu
-        for variant in hsw x64; do
+        cmake -S ggml-src -B ggml-build-sse "${flags[@]}" \
+          -DGGML_VULKAN=OFF -DGGML_AVX2=OFF -DGGML_FMA=OFF -DGGML_BMI2=OFF \
+          -DGGML_AVX=OFF -DGGML_F16C=OFF
+        cmake --build ggml-build-sse --parallel "$CRAFT_PARALLEL_BUILD_COUNT" --target ggml-cpu
+        for variant in hsw x64 sse; do
           build=ggml-build
-          [ "$variant" != x64 ] || build=ggml-build-x64
+          [ "$variant" = hsw ] || build="ggml-build-$variant"
           lib="$out/libggml-cpu-$variant.a"
           cp "$(find_lib "$build" libggml-cpu.a)" "$lib"
           nm --defined-only --format=just-symbols "$lib" | grep -v -e ':$' -e '^$' | sort -u |
