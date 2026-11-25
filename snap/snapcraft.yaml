@@ -1,6 +1,6 @@
 name: vibe
 base: core26
-version: '3.3.0'
+version: '3.3.8'
 title: Vibe
 icon: snap/gui/vibe.png
 summary: Transcribe audio and video offline with Whisper models
